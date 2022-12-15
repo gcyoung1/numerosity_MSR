@@ -6,9 +6,10 @@ from generate_synthetic_data import TYPE_2_PATH
 
 
 class SyntheticLoader:
-    def __init__(self, device, problem="default", k_spt=1, k_qry=19):
+    def __init__(self, device, problem="default", length=70, k_spt=1, k_qry=19):
         self.device = device
-        data = np.load(TYPE_2_PATH[problem])
+        data_path = f"./data/{problem}_{length}.npz"
+        data = np.load(data_path)
         self.xs, self.ys, self.ws = data["x"], data["y"], data["w"]
         # xs shape: (10000, 20, c_i, ...)
         # ys shape: (10000, 20, c_o, ...)

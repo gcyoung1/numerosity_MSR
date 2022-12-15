@@ -108,6 +108,9 @@ class ShareLinearFull(Module):
     def get_weight(self):
         return (self.warp @ self.latent_params).view(self.out_features, self.in_features)
 
+    def warp_l1(self):
+        return self.warp.abs().sum()
+
     def reset_parameters(self):
         init._no_grad_normal_(self.warp, 0, 0.01)
         init._no_grad_normal_(self.latent_params, 0, 1 / self.out_features)
@@ -120,6 +123,28 @@ class ShareLinearFull(Module):
     def forward(self, x):
         weight = self.get_weight()
         return F.linear(x, weight, self.bias)
+
+class ShareMLPFull(Module):
+    def __init__(self, in_features, hidden_size, num_hidden_layers, out_features, bias=True, latent_size=3):
+        super(ShareMLPFull, self).__init__()
+        assert num_hidden_layers >= 1, "Must have at least one hidden layer: this is an MLP!"
+        self.in_features = in_features
+        self.hidden_size = hidden_size
+        self.out_features = out_features
+        self.layers = []
+        self.layers.append(ShareLinearFull(in_features, hidden_size, bias=bias, latent_size=latent_size))
+        self.layers.append(nn.ReLU())
+        for _ in range(num_hidden_layers - 1):
+            self.layers.append(ShareLinearFull(hidden_size, hidden_size, bias=bias, latent_size=latent_size))
+            self.layers.append(nn.ReLU())
+        self.layers.append(ShareLinearFull(hidden_size, out_features, bias=bias, latent_size=latent_size))
+        self.f = nn.Sequential(*self.layers)
+
+    def warp_l1(self):
+        return sum([layer.warp.abs().sum() for layer in self.layers if hasattr(layer, 'warp')])
+
+    def forward(self, x):
+        return self.f(x)
 
 
 class Identity1x1Conv(nn.Conv2d):
